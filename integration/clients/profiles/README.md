@@ -1,4 +1,10 @@
-# Client connection profiles
+# Historical client connection profiles
+
+> These fixtures retain the earlier `/claude-native` and `/claude-responses`
+> pass-through deployment for reproducibility. For current standard LiteLLM
+> model routing and `-claude` / `-codex` aliases, use the
+> [current client guide](../../../docs/CLIENTS.md). Do not copy these older
+> endpoints as the default for a new installation.
 
 The static snippets are opt-in **connection settings**, not copies of the
 synthetic test clients. They contain no model catalog, replacement system prompt,

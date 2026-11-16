@@ -1,15 +1,27 @@
 # Native Responses model routing through LiteLLM
 
+[Installation](QUICKSTART.md) · [Client setup](CLIENTS.md) · [Eight-model configuration](../integration/litellm/native-responses.example.yaml)
+
 Use separate model aliases for native Messages and Responses clients. Both use
-the ordinary authenticated LiteLLM API and the same Han proxy; protocol
+the ordinary authenticated LiteLLM API and the same claudemock proxy; protocol
 conversion for Codex belongs to the proxy's Responses adapter.
 
 ```text
-Claude Code -> LiteLLM /v1/messages  [claude-opus-5-5-han]
-            -> Han /v1/messages -> genuine CLI inference
-Codex       -> LiteLLM /v1/responses [claude-opus-5-5-responses-han]
-            -> Han /v1/responses -> native Messages -> genuine CLI inference
+Claude Code -> LiteLLM /v1/messages  [claude-opus-5-5-claude]
+            -> claudemock /v1/messages -> genuine CLI inference
+Codex       -> LiteLLM /v1/responses [claude-opus-5-5-codex]
+            -> claudemock /v1/responses -> native Messages -> genuine CLI inference
 ```
+
+## Current model naming
+
+Register Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.2 twice: append
+`-claude` for Messages or `-codex` for native Responses to the canonical model ID.
+For example, `claude-sonnet-5-5-codex` routes to `openai/claude-sonnet-5-5`.
+The suffix does not automatically select a client endpoint. Clients must use
+`/v1/messages` or `/v1/responses` accordingly. Direct proxy requests use the
+canonical ID without these suffixes. Historical `-han` names in dated evidence
+are preserved as observations, not current connection instructions.
 
 ## Configuration
 
@@ -21,7 +33,7 @@ needed. This uses standard model routing rather than a custom Enterprise
 pass-through endpoint.
 
 The Responses deployment uses `openai/claude-opus-5-5`, API base ending in `/v1`,
-and the proxy key. LiteLLM sends the canonical model ID to Han. Its `openai/`
+and the proxy key. LiteLLM sends the canonical model ID to claudemock. Its `openai/`
 prefix selects native Responses; `model_info.mode: responses` and
 `supported_endpoints: ["/v1/responses"]` document the intended endpoint. See
 [LiteLLM's native Responses configuration](https://docs.litellm.ai/docs/response_api_native_passthrough).
@@ -33,23 +45,23 @@ Do not append `/responses` or `/v1/messages` to either configured base.
 Use an existing stable proxy-key identity so reasoning capsules remain valid.
 
 Set the Codex provider's base URL to `http://YOUR_LITELLM_HOST:4000/v1`, its wire
-API to `responses`, and model to `claude-opus-5-5-responses-han`. Use a LiteLLM
-client key there, never an Anthropic token or Han's upstream credential.
+API to `responses`, and model to `claude-opus-5-5-codex`. Use a LiteLLM
+client key there, never an Anthropic token or claudemock's upstream credential.
 No ordinary Codex configuration is changed by the qualification harness.
 
 ## State and compatibility
 
 The old Anthropic-backed managed Responses route can construct item-done and
 final reasoning separately. The native Responses deployment instead selects
-Han's adapter. It is still necessary to test the resulting gateway stream:
+claudemock's adapter. It is still necessary to test the resulting gateway stream:
 supported routing alone does not prove preservation of every extension.
 
 Clients must send their full history, including reasoning items with
-`encrypted_content`. Han does not persist responses for `previous_response_id`.
+`encrypted_content`. claudemock does not persist responses for `previous_response_id`.
 Keep the proxy state key, API-key identity, model and upstream account stable
 throughout a conversation; do not move existing signed histories to a different
 model. Start a fresh session when changing from the former managed-conversion
-route because its reasoning encoding is not Han's capsule format.
+route because its reasoning encoding is not claudemock's capsule format.
 
 `supported_endpoints` describes routing capability; do not treat it as a
 credential access-control list. Retain the gateway's ordinary model permissions.
@@ -92,7 +104,8 @@ independent regression. Preserve failed receipts and distinguish functional
 success from signed-state qualification. Do not export credentials, reasoning
 contents or capsules into public evidence.
 
-Rollback removes only the newly registered Responses deployment and returns
-clients to their prior configuration. Existing Messages deployments, keys and
+For a new deployment, rollback removes only its newly registered entries and
+restores the previous client configuration. For a rename migration, restore the
+previous aliases and their key/team model references together from your backup. Existing Messages deployments, keys and
 proxy state stay in place. The former Responses conversion route retains its
 documented signed-state limitation; rollback does not fix it.
